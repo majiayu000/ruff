@@ -1444,6 +1444,12 @@ impl From<&ast::ExprNamed> for DefinitionNodeKey {
     }
 }
 
+impl From<&ast::StmtAssign> for DefinitionNodeKey {
+    fn from(node: &ast::StmtAssign) -> Self {
+        Self(NodeKey::from_node(node))
+    }
+}
+
 impl From<&ast::StmtAnnAssign> for DefinitionNodeKey {
     fn from(node: &ast::StmtAnnAssign) -> Self {
         Self(NodeKey::from_node(node))
