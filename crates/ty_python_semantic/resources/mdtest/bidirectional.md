@@ -470,7 +470,7 @@ Container types are inferred based on future uses that extend throughout the ent
 x1 = []
 x1.append(1)
 x1.append("2")
-reveal_type(x1)  # revealed: list[int | str]
+reveal_type(x1)  # revealed: list[str | int]
 ```
 
 ```py
@@ -500,7 +500,7 @@ def append[T](x: list[T], y: T):
 x4 = []
 append(x4, 1)
 append(x4, "2")
-reveal_type(x4)  # revealed: list[int | str]
+reveal_type(x4)  # revealed: list[str | int]
 ```
 
 ```py
@@ -531,7 +531,7 @@ x8.append(1)
 x8.append("2")
 x9.append(3)
 
-reveal_type(x8)  # revealed: list[int | str]
+reveal_type(x8)  # revealed: list[str | int]
 reveal_type(x9)  # revealed: list[int]
 ```
 

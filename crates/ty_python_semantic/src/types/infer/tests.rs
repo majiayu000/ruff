@@ -703,17 +703,15 @@ fn call_type_doesnt_rerun_when_only_callee_changed() -> anyhow::Result<()> {
     let events = db.take_salsa_events();
 
     let module = parsed_module(&db, bar).load(&db);
-    let assign_stmt = &*module.syntax().body[1].as_assign_stmt().unwrap();
-    let foo_call = semantic_index(&db, bar).expression(&assign_stmt.value);
-    let assign_target = assign_stmt.targets[0].clone().expect_name_expr();
-    let assign_def = semantic_index(&db, bar).expect_single_definition(&assign_target);
-    let foo_context = InferExpression::new(
-        &db,
-        foo_call,
-        TypeContext::default().with_definition(assign_def),
-    );
+    let call = &*module.syntax().body[1].as_assign_stmt().unwrap().value;
+    let foo_call = semantic_index(&db, bar).expression(call);
 
-    assert_function_query_was_run(&db, infer_expression_types_impl, foo_context, &events);
+    assert_function_query_was_run(
+        &db,
+        infer_expression_types_impl,
+        InferExpression::Bare(foo_call),
+        &events,
+    );
 
     // Add a docstring to foo to trigger a re-run.
     // The bar-call site of foo should not be re-run because of that
@@ -733,17 +731,15 @@ fn call_type_doesnt_rerun_when_only_callee_changed() -> anyhow::Result<()> {
     let events = db.take_salsa_events();
 
     let module = parsed_module(&db, bar).load(&db);
-    let assign_stmt = &*module.syntax().body[1].as_assign_stmt().unwrap();
-    let foo_call = semantic_index(&db, bar).expression(&assign_stmt.value);
-    let assign_target = assign_stmt.targets[0].clone().expect_name_expr();
-    let assign_def = semantic_index(&db, bar).expect_single_definition(&assign_target);
-    let foo_context = InferExpression::new(
-        &db,
-        foo_call,
-        TypeContext::default().with_definition(assign_def),
-    );
+    let call = &*module.syntax().body[1].as_assign_stmt().unwrap().value;
+    let foo_call = semantic_index(&db, bar).expression(call);
 
-    assert_function_query_was_not_run(&db, infer_expression_types_impl, foo_context, &events);
+    assert_function_query_was_not_run(
+        &db,
+        infer_expression_types_impl,
+        InferExpression::Bare(foo_call),
+        &events,
+    );
 
     Ok(())
 }

@@ -338,7 +338,7 @@ impl<'db> InferExpression<'db> {
         expression: Expression<'db>,
         tcx: TypeContext<'db>,
     ) -> InferExpression<'db> {
-        if tcx.annotation.is_some() || tcx.definition.is_some() {
+        if tcx.annotation.is_some() {
             InferExpression::WithContext(ExpressionWithContext::new(db, expression, tcx))
         } else {
             InferExpression::Bare(expression)
@@ -400,22 +400,11 @@ impl<'db> InferScope<'db> {
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, get_size2::GetSize, salsa::Update)]
 pub(crate) struct TypeContext<'db> {
     pub(crate) annotation: Option<Type<'db>>,
-    pub(crate) definition: Option<Definition<'db>>,
 }
 
 impl<'db> TypeContext<'db> {
     pub(crate) fn new(annotation: Option<Type<'db>>) -> Self {
-        Self {
-            annotation,
-            definition: None,
-        }
-    }
-
-    pub(crate) fn with_definition(self, definition: Definition<'db>) -> Self {
-        Self {
-            annotation: self.annotation,
-            definition: Some(definition),
-        }
+        Self { annotation }
     }
 
     // If the type annotation is a specialized instance of the given `KnownClass`, returns the
@@ -432,7 +421,6 @@ impl<'db> TypeContext<'db> {
     pub(crate) fn map(self, f: impl FnOnce(Type<'db>) -> Type<'db>) -> Self {
         Self {
             annotation: self.annotation.map(f),
-            definition: self.definition,
         }
     }
 

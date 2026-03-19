@@ -1388,7 +1388,7 @@ impl<'db> LoopHeaderDefinitionKind<'db> {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, salsa::Update, get_size2::GetSize)]
-pub(crate) struct DefinitionNodeKey(NodeKey);
+pub(crate) struct DefinitionNodeKey(pub(super) NodeKey);
 
 impl From<&ast::Alias> for DefinitionNodeKey {
     fn from(node: &ast::Alias) -> Self {
