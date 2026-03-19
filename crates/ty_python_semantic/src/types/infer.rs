@@ -591,7 +591,9 @@ impl<'db> ScopeInference<'db> {
                     .collect();
             }
         }
-        if let Some(prev_extra) = &previous_inference.extra {
+        if cycle.iteration() > 1
+            && let Some(prev_extra) = &previous_inference.extra
+        {
             for (def, prev_types) in &prev_extra.use_contexts {
                 let extra = self.extra.get_or_insert_default();
 
@@ -766,7 +768,9 @@ impl<'db> DefinitionInference<'db> {
                     .collect();
             }
         }
-        if let Some(prev_extra) = &previous_inference.extra {
+        if cycle.iteration() > 1
+            && let Some(prev_extra) = &previous_inference.extra
+        {
             for (def, prev_types) in &prev_extra.use_contexts {
                 let extra = self.extra.get_or_insert_default();
 
@@ -932,7 +936,9 @@ impl<'db> ExpressionInference<'db> {
                     .map(|ty| ty.recursive_type_normalized(db, cycle))
                     .collect();
             }
-            if let Some(prev_extra) = &previous.extra {
+            if cycle.iteration() > 1
+                && let Some(prev_extra) = &previous.extra
+            {
                 for (def, prev_types) in &prev_extra.use_contexts {
                     let extra = self.extra.get_or_insert_default();
 
