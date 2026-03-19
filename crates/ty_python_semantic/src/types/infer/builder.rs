@@ -6287,7 +6287,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                             // unspecialized type variables with `Unknown`.
                             let inferred_ty =
                                 inferred_ty.filter_union(self.db(), |ty| !ty.is_unknown());
-                            if inferred_ty.is_never() {
+                            if inferred_ty.is_never() || inferred_ty.is_unknown() {
                                 return None;
                             }
 
