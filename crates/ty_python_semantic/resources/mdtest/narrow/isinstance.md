@@ -836,7 +836,13 @@ class Invariant2(Generic[T_constrained, T_defaulted_and_constrained]):
     t_constrained: T_constrained
     t_defaulted_and_constrained: T_defaulted_and_constrained
 
-def test_invariant_narrowing(x: object):
+def test_invariant_narrowing(
+    obj: object,
+    invariant_1_unspecialized: Invariant1,
+    invariant_1_specialized: Invariant1[int, int, [int, str], int, int, [int, str]],
+    invariant_2_unspecialized: Invariant2,
+    invariant_2_specialized: Invariant2[int, int],
+):
     if isinstance(x, Invariant1):
         # revealed: Top[Invariant1[Unknown, Unknown & UpperBound, Top[(...)], Unknown, (Unknown & UnionBoundElement1) | (Unknown & UnionBoundElement2), Top[(...)]]]
         reveal_type(x)
