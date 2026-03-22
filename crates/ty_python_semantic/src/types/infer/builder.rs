@@ -5138,12 +5138,6 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             .flatten()
             .collect::<Vec<_>>();
 
-        // Some arguments may have already been inferred (e.g., typed dict default arguments
-        // in `specialize_typed_dict_known_key_method_call`), so we use `Intersect` to allow
-        // re-inference without panicking.
-        let old_multi_inference_state =
-            self.set_multi_inference_state(MultiInferenceState::Intersect);
-
         for (argument_index, (_, argument_types), argument_form, ast_argument) in iter {
             let ast_argument = match ast_argument {
                 // Splatted arguments are inferred before parameter matching to
@@ -5284,8 +5278,6 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 self.set_multi_inference_state(prev_multi_inference_state);
             }
         }
-
-        self.set_multi_inference_state(old_multi_inference_state);
     }
 
     fn infer_argument_type(
@@ -5462,10 +5454,6 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             MultiInferenceState::Panic => {
                 let previous = self.expressions.insert(expression.into(), ty);
                 assert_eq!(previous, None);
-            }
-
-            MultiInferenceState::Intersect => {
-                self.expressions.entry(expression.into()).or_insert(ty);
             }
         }
     }
@@ -9166,9 +9154,6 @@ enum MultiInferenceState {
 
     /// Ignore the newly inferred value.
     Ignore,
-
-    /// Store only the first inferred type for the expression; ignore subsequent inferences.
-    Intersect,
 }
 
 impl MultiInferenceState {

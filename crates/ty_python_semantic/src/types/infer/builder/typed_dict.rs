@@ -10,6 +10,8 @@ use crate::types::{
 };
 
 impl<'db> TypeInferenceBuilder<'db, '_> {
+    /// Return an empty function-like callable to model a `TypedDict` method that is statically
+    /// unavailable for the current key shape.
     fn non_callable_typed_dict_method(&self) -> Type<'db> {
         Type::Callable(CallableType::new(
             self.db(),
@@ -18,6 +20,10 @@ impl<'db> TypeInferenceBuilder<'db, '_> {
         ))
     }
 
+    /// Build a field-specific callable signature for a known-key `TypedDict` method call.
+    ///
+    /// Returns `None` if the method name or arity is unsupported, or if a required default type
+    /// was not provided.
     fn specialize_typed_dict_known_key_method_for_field(
         &self,
         key: &str,
@@ -108,6 +114,12 @@ impl<'db> TypeInferenceBuilder<'db, '_> {
         })
     }
 
+    /// Resolve the field type for a literal key on a `TypedDict` or union of
+    /// `TypedDict` instances.
+    ///
+    /// For unions, every arm must contain the key; the resulting field type is the union of the
+    /// per-arm field types, and the field is treated as required only if it is required in every
+    /// arm.
     pub(super) fn known_typed_dict_field_for_key(
         &self,
         value_type: Type<'db>,
@@ -135,29 +147,35 @@ impl<'db> TypeInferenceBuilder<'db, '_> {
         }
     }
 
+    /// Infer a known-key `get()` or `pop()` default, optionally trying the field type as
+    /// bidirectional context and keeping it only if that inference remains assignable.
     pub(super) fn infer_typed_dict_known_key_default(
         &mut self,
         default_arg: &ast::Expr,
         field_ty: Type<'db>,
         use_field_context: bool,
     ) -> Type<'db> {
-        if !use_field_context {
-            return self.infer_expression(default_arg, TypeContext::default());
-        }
-
-        let mut speculative_builder = self.speculate();
-        let inferred_ty =
-            speculative_builder.infer_expression(default_arg, TypeContext::new(Some(field_ty)));
-
-        if inferred_ty.is_assignable_to(self.db(), field_ty) {
-            self.extend(speculative_builder);
-            inferred_ty
-        } else {
+        let infer_speculatively = |builder: &mut Self, tcx| {
+            let mut speculative_builder = builder.speculate();
+            let inferred_ty = speculative_builder.infer_expression(default_arg, tcx);
             speculative_builder.discard();
-            self.infer_expression(default_arg, TypeContext::default())
+            inferred_ty
+        };
+
+        if use_field_context {
+            let inferred_ty = infer_speculatively(self, TypeContext::new(Some(field_ty)));
+            if inferred_ty.is_assignable_to(self.db(), field_ty) {
+                return inferred_ty;
+            }
         }
+
+        infer_speculatively(self, TypeContext::default())
     }
 
+    /// Replace a generic `TypedDict` method type with a signature specialized to a literal key.
+    ///
+    /// This handles both concrete `TypedDict`s and unions of `TypedDict`s whose members all define
+    /// the requested key.
     pub(super) fn specialize_typed_dict_known_key_method_call(
         &mut self,
         value_type: Type<'db>,
@@ -226,6 +244,11 @@ impl<'db> TypeInferenceBuilder<'db, '_> {
         }
     }
 
+    /// Validate literal-key `pop()` and `setdefault()` calls on concrete `TypedDict`s before
+    /// ordinary overload resolution.
+    ///
+    /// Returns `Some(Unknown)` when we emit a definitive diagnostic and should stop normal call
+    /// checking; otherwise returns `None`.
     pub(super) fn check_typed_dict_pop_or_setdefault_call(
         &mut self,
         typed_dict_ty: TypedDictType<'db>,
