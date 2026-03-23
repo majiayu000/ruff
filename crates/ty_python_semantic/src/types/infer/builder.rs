@@ -5322,81 +5322,88 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         }
     }
 
-    /// Record constraints for all argument types.
+    /// Record constraints for all argument types after specialization.
     fn record_argument_type_constraints<'bindings>(
         &mut self,
-        ast_arguments: ArgumentsIter<'_>,
-        argument_types: &CallArguments<'_, 'db>,
-        bindings: &'bindings Bindings<'db>,
+        _ast_arguments: ArgumentsIter<'_>,
+        _argument_types: &CallArguments<'_, 'db>,
+        _bindings: &'bindings Bindings<'db>,
     ) {
-        let db = self.db();
-        let use_def = self
-            .index
-            .use_def_map(self.scope().file_scope_id(self.db()));
+        // TODO: Naively recording argument constraints after specializations leads to us
+        // considering the inferred type from a previous cycle iteration as a strict constraint,
+        // e.g., `reveal_type(x)` constrains `x` to its current type. Instead, for a given
+        // argument, we should record any constraints on its generic context created by *other*
+        // arguments. Note that such a check is quadratic, though it can likely be mitigated
+        // in the common case.
 
-        for (argument_index, (_, argument_types), ast_argument) in
-            itertools::izip!(0.., argument_types.iter(), ast_arguments)
-        {
-            // TODO: Support constraints based on splatted arguments.
-            if ast_argument.is_variadic() {
-                continue;
-            }
+        // let db = self.db();
+        // let use_def = self
+        //     .index
+        //     .use_def_map(self.scope().file_scope_id(self.db()));
 
-            // Retrieve the parameter constraint for the current argument in a given overload and its binding.
-            let parameter_constraint =
-                |overload: &'bindings Binding<'db>, binding: &'bindings CallableBinding<'db>| {
-                    let argument_index = if binding.bound_type.is_some() {
-                        argument_index + 1
-                    } else {
-                        argument_index
-                    };
+        // for (argument_index, (_, argument_types), ast_argument) in
+        //     itertools::izip!(0.., argument_types.iter(), ast_arguments)
+        // {
+        //     // TODO: Support constraints based on splatted arguments.
+        //     if ast_argument.is_variadic() {
+        //         continue;
+        //     }
 
-                    let argument_matches = &overload.argument_matches()[argument_index];
-                    let [parameter_index] = argument_matches.parameters.as_slice() else {
-                        return None;
-                    };
+        //     // Retrieve the parameter constraint for the current argument in a given overload and its binding.
+        //     let parameter_constraint =
+        //         |overload: &'bindings Binding<'db>, binding: &'bindings CallableBinding<'db>| {
+        //             let argument_index = if binding.bound_type.is_some() {
+        //                 argument_index + 1
+        //             } else {
+        //                 argument_index
+        //             };
 
-                    let parameter = &overload.signature.parameters()[*parameter_index];
-                    let parameter_type = parameter.annotated_type();
+        //             let argument_matches = &overload.argument_matches()[argument_index];
+        //             let [parameter_index] = argument_matches.parameters.as_slice() else {
+        //                 return None;
+        //             };
 
-                    Some((
-                        parameter,
-                        parameter_type.apply_optional_specialization(db, overload.specialization()),
-                    ))
-                };
+        //             let parameter = &overload.signature.parameters()[*parameter_index];
+        //             let parameter_type = parameter.annotated_type();
 
-            for binding in bindings.iter_flat() {
-                for (_, overload) in binding.matching_overloads() {
-                    let parameter_constraint = parameter_constraint(overload, binding);
-                    let argument_type = parameter_constraint
-                        .map(|(parameter, _)| {
-                            argument_types.get_for_declared_type(parameter.annotated_type())
-                        })
-                        .or(argument_types.get_default());
+        //             Some((
+        //                 parameter,
+        //                 parameter_type.apply_optional_specialization(db, overload.specialization()),
+        //             ))
+        //         };
 
-                    // We only record constraints for generic types.
-                    if argument_type
-                        .and_then(|ty| ty.class_specialization(db))
-                        .is_none()
-                    {
-                        continue;
-                    }
+        //     for binding in bindings.iter_flat() {
+        //         for (_, overload) in binding.matching_overloads() {
+        //             let parameter_constraint = parameter_constraint(overload, binding);
+        //             let argument_type = parameter_constraint
+        //                 .map(|(parameter, _)| {
+        //                     argument_types.get_for_declared_type(parameter.annotated_type())
+        //                 })
+        //                 .or(argument_types.get_default());
 
-                    if let Some(use_id) = try_scoped_use_id(db, self.scope(), ast_argument.value())
-                        && let Some((_, parameter_constraint)) = parameter_constraint
-                    {
-                        for binding in use_def.bindings_at_use(use_id) {
-                            if let Some(definition) = binding.binding.definition() {
-                                self.use_contexts
-                                    .entry(definition)
-                                    .or_default()
-                                    .insert(parameter_constraint);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        //             // We only record constraints for generic types.
+        //             if argument_type
+        //                 .and_then(|ty| ty.class_specialization(db))
+        //                 .is_none()
+        //             {
+        //                 continue;
+        //             }
+
+        //             if let Some(use_id) = try_scoped_use_id(db, self.scope(), ast_argument.value())
+        //                 && let Some((_, parameter_constraint)) = parameter_constraint
+        //             {
+        //                 for binding in use_def.bindings_at_use(use_id) {
+        //                     if let Some(definition) = binding.binding.definition() {
+        //                         self.use_contexts
+        //                             .entry(definition)
+        //                             .or_default()
+        //                             .insert(parameter_constraint);
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     fn infer_argument_type(
@@ -6263,56 +6270,36 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             let scope_use_types =
                 infer_scope_types(self.db(), self.scope(), TypeContext::default());
 
-            for constraint in scope_use_types.definition_use_contexts(definition) {
-                if constraint.has_unspecialized_type_var(self.db()) {
-                    continue;
-                }
-
-                // Infer `Collection[Divergent]` for the initial cycle result.
-                if constraint.is_divergent() {
-                    let divergent_instance = collection_alias
-                        .origin(self.db())
-                        .apply_specialization(self.db(), |generic_context| {
-                            generic_context.repeat_specialization(self.db(), constraint)
-                        });
+            if let Some(use_constraints) = scope_use_types.definition_use_contexts(definition) {
+                for constraint in use_constraints {
+                    if constraint.has_unspecialized_type_var(self.db()) {
+                        continue;
+                    }
 
                     builder
-                        .infer(
+                        .infer_map(
                             &constraints,
                             identity_instance,
-                            Type::instance(self.db(), divergent_instance),
-                        )
-                        .ok()?;
-
-                    continue;
-                }
-
-                builder
-                    .infer_map(
-                        &constraints,
-                        identity_instance,
-                        constraint,
-                        |(_, _, inferred_ty)| {
-                            // Avoid directly inferring divergent types that may arise from the initial cycle result.
-                            if inferred_ty.is_divergent() {
-                                return None;
-                            }
-
-                            // Additionally, avoid directly inferring `Unknown` types that may arise due to partially specialized
-                            // generic function calls.
-                            //
-                            // TODO: Store constraint sets instead of specializations to avoid being forced to eagerly fill-in
-                            // unspecialized type variables with `Unknown`.
-                            let inferred_ty =
-                                inferred_ty.filter_union(self.db(), |ty| !ty.is_unknown());
-                            if inferred_ty.is_never() || inferred_ty.is_unknown() {
-                                return None;
-                            }
-
+                            *constraint,
                             // We promote element literal types in invariant position by default, unless they
                             // were inferred with an explicit literal annotation.
-                            Some(inferred_ty.promote(self.db()))
-                        },
+                            |(_, _, inferred_ty)| Some(inferred_ty.promote(self.db())),
+                        )
+                        .ok()?;
+                }
+            } else if let Some(divergent) = scope_use_types.fallback_type() {
+                // Infer `Collection[Divergent]` for the initial cycle result.
+                let divergent_instance = collection_alias
+                    .origin(self.db())
+                    .apply_specialization(self.db(), |generic_context| {
+                        generic_context.repeat_specialization(self.db(), divergent)
+                    });
+
+                builder
+                    .infer(
+                        &constraints,
+                        identity_instance,
+                        Type::instance(self.db(), divergent_instance),
                     )
                     .ok()?;
             }

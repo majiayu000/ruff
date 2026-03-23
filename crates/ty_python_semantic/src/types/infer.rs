@@ -621,15 +621,8 @@ impl<'db> ScopeInference<'db> {
     pub(crate) fn definition_use_contexts(
         &self,
         definition: Definition<'db>,
-    ) -> impl Iterator<Item = Type<'db>> {
-        let Some(extra) = &self.extra else {
-            return Either::Left(iter::empty());
-        };
-
-        Either::Right(match extra.use_contexts.get(&definition) {
-            None => Either::Left(extra.cycle_recovery.into_iter()),
-            Some(types) => Either::Right(types.iter().copied()),
-        })
+    ) -> Option<&FxHashSet<Type<'db>>> {
+        self.extra.as_ref()?.use_contexts.get(&definition)
     }
 
     pub(crate) fn try_expression_type(

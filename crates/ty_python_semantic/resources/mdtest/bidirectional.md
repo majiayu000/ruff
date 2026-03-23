@@ -500,7 +500,9 @@ def append[T](x: list[T], y: T):
 x4 = []
 append(x4, 1)
 append(x4, "2")
-reveal_type(x4)  # revealed: list[str | int]
+# TODO: This should reveal `list[int | str]`. We do not currently record argument
+# constraints for generic calls.
+reveal_type(x4)  # revealed: list[Unknown]
 ```
 
 ```py
@@ -560,6 +562,13 @@ x14.append(x13)
 
 reveal_type(x13)  # revealed: list[Divergent]
 reveal_type(x14)  # revealed: list[Divergent]
+```
+
+```py
+def _(i):
+    x15 = [i]
+    x15.append(x15)
+    reveal_type(x15)  # revealed: list[Divergent | Unknown]
 ```
 
 ## Multi-inference diagnostics
