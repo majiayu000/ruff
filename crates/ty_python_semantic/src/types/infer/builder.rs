@@ -216,7 +216,7 @@ pub(super) struct TypeInferenceBuilder<'db, 'ast> {
     expressions: FxHashMap<ExpressionNodeKey, Type<'db>>,
 
     /// The type contexts applicable to every definition in this region.
-    use_contexts: FxHashMap<Definition<'db>, FxHashSet<Type<'db>>>,
+    use_contexts: FxHashMap<Definition<'db>, FxIndexSet<Type<'db>>>,
 
     /// Expressions that are string annotations
     string_annotations: FxHashSet<ExpressionNodeKey>,
@@ -5323,6 +5323,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
     }
 
     /// Record constraints for all argument types after specialization.
+    #[expect(clippy::unused_self)]
     fn record_argument_type_constraints<'bindings>(
         &mut self,
         _ast_arguments: ArgumentsIter<'_>,

@@ -37,16 +37,14 @@
 //! be considered a bug.)
 
 use std::collections::hash_map::Entry;
-use std::iter;
 
-use itertools::Either;
 use ruff_db::parsed::parsed_module;
 use ruff_text_size::Ranged;
 use rustc_hash::{FxHashMap, FxHashSet};
 use salsa;
 use salsa::plumbing::AsId;
 
-use crate::Db;
+use crate::{Db, FxIndexSet};
 
 use crate::semantic_index::ast_ids::node_key::ExpressionNodeKey;
 use crate::semantic_index::definition::Definition;
@@ -552,7 +550,7 @@ struct ScopeInferenceExtra<'db> {
     string_annotations: FxHashSet<ExpressionNodeKey>,
 
     /// The type contexts applicable to every definition in this region.
-    use_contexts: FxHashMap<Definition<'db>, FxHashSet<Type<'db>>>,
+    use_contexts: FxHashMap<Definition<'db>, FxIndexSet<Type<'db>>>,
 
     /// The fallback type for missing expressions/bindings/declarations or recursive type inference.
     cycle_recovery: Option<Type<'db>>,
@@ -621,7 +619,7 @@ impl<'db> ScopeInference<'db> {
     pub(crate) fn definition_use_contexts(
         &self,
         definition: Definition<'db>,
-    ) -> Option<&FxHashSet<Type<'db>>> {
+    ) -> Option<&FxIndexSet<Type<'db>>> {
         self.extra.as_ref()?.use_contexts.get(&definition)
     }
 
@@ -686,7 +684,7 @@ struct DefinitionInferenceExtra<'db> {
     called_functions: Box<[FunctionType<'db>]>,
 
     /// The type contexts applicable to every definition in this region.
-    use_contexts: FxHashMap<Definition<'db>, FxHashSet<Type<'db>>>,
+    use_contexts: FxHashMap<Definition<'db>, FxIndexSet<Type<'db>>>,
 
     /// The fallback type for missing expressions/bindings/declarations or recursive type inference.
     cycle_recovery: Option<Type<'db>>,
@@ -871,7 +869,7 @@ struct ExpressionInferenceExtra<'db> {
     string_annotations: FxHashSet<ExpressionNodeKey>,
 
     /// The type contexts applicable to every definition in this region.
-    use_contexts: FxHashMap<Definition<'db>, FxHashSet<Type<'db>>>,
+    use_contexts: FxHashMap<Definition<'db>, FxIndexSet<Type<'db>>>,
 
     /// The types of every binding in this expression region.
     ///
